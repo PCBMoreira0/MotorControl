@@ -2,7 +2,4 @@
 #define STACK_SIZE(x) (x) 
 #define PRIORITY(x) (x)
 
-extern int value;
-extern int delay_ms;
-void SerialTask(void *parameter);
-bool TryParseASCIICommand(char input);
+void SerialReaderTask(void *parameter);
