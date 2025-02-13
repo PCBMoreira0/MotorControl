@@ -41,7 +41,8 @@ float adc2voltage(int adc_value){
     return (adc_value/32767.0f)*4.096f;
 }
 
-void DirectionTask(void *parameter){
+void setup(){
+    Serial.begin(115200);
     Wire.setPins(GPIO_NUM_21, GPIO_NUM_22);
     Wire.begin(); // I2C master mode to communicate with the ADS1115 ADC
 
@@ -62,66 +63,42 @@ void DirectionTask(void *parameter){
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
-
-    while(true){
-        int bb_pot = adc.readADC_SingleEnded(0);
-        int br_pot = adc.readADC_SingleEnded(2);
-        int16_t dir_pot = adc.readADC_SingleEnded(1);
-
-        float speed_porc = (float)bb_pot / pot_max_bit;
-
-        if((dir_pot > (pot_max_bit/2 - dead_zone_threshold)) && (dir_pot < (pot_max_bit/2 + dead_zone_threshold))){
-            // Serial.printf("Morta %d\n", 255);	
-            bb_vel = 255 * speed_porc;
-            br_vel = 255 * speed_porc;
-            dacWrite(bb_dac_pin, 255 * speed_porc);
-            dacWrite(br_dac_pin, 255 * speed_porc);
-        }
-        else if(dir_pot < (pot_max_bit/2 - dead_zone_threshold)){
-            int bb_value = get_velocity_linear(dir_pot);
-            // Serial.printf("BB: %d\n", bb_value);
-            // Serial.printf("BR: %d\n\n", 255);
-            bb_vel = bb_value * speed_porc;
-            br_vel = 255 * speed_porc;
-            dacWrite(bb_dac_pin, bb_value * speed_porc);
-            dacWrite(br_dac_pin, 255 * speed_porc);
-        }
-        else{
-            int br_value = get_velocity_linear((pot_max_bit-1)-dir_pot);
-            // Serial.printf("BB: %d\n", 255);
-            // Serial.printf("BR: %d\n\n", br_value);
-            bb_vel = 255 * speed_porc;
-            br_vel = br_value * speed_porc;
-            dacWrite(bb_dac_pin, 255 * speed_porc);
-            dacWrite(br_dac_pin, br_value * speed_porc);
-        }
-
-        // Serial.printf("\nBombordo: %.2f V\n"
-        //                 "Direcao: %d\n"
-        //               "Boreste: %.2f V\n"
-        //               "Porc: %.2f\n",
-        //               adc2voltage(bb_pot), dir_pot, adc2voltage(br_pot), speed_porc);
-
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
-
-    vTaskDelete(NULL);
-}
-
-void SerialTask(void *parameter){
-    while(true){
-        Serial.printf("BB: %d\nBR: %d\n\n", bb_vel, br_vel);
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-}
-
-void setup(){
-    Serial.begin(115200);
-    xTaskCreate(DirectionTask, "DirTask", 4096, NULL, 1, NULL);
-    xTaskCreate(SerialTask, "SerTask", 4096, NULL, 1, NULL);
 }
 
 void loop()
 {
-    vTaskDelete(NULL);
+    int bb_pot = adc.readADC_SingleEnded(0);
+    int br_pot = adc.readADC_SingleEnded(2);
+    int16_t dir_pot = adc.readADC_SingleEnded(1);
+    float speed_porc = (float)bb_pot / pot_max_bit;
+    if((dir_pot > (pot_max_bit/2 - dead_zone_threshold)) && (dir_pot < (pot_max_bit/2 + dead_zone_threshold))){
+        // Serial.printf("Morta %d\n", 255);	
+        bb_vel = 255 * speed_porc;
+        br_vel = 255 * speed_porc;
+        dacWrite(bb_dac_pin, 255 * speed_porc);
+        dacWrite(br_dac_pin, 255 * speed_porc);
+    }
+    else if(dir_pot < (pot_max_bit/2 - dead_zone_threshold)){
+        int bb_value = get_velocity_linear(dir_pot);
+        // Serial.printf("BB: %d\n", bb_value);
+        // Serial.printf("BR: %d\n\n", 255);
+        bb_vel = bb_value * speed_porc;
+        br_vel = 255 * speed_porc;
+        dacWrite(bb_dac_pin, bb_value * speed_porc);
+        dacWrite(br_dac_pin, 255 * speed_porc);
+    }
+    else{
+        int br_value = get_velocity_linear((pot_max_bit-1)-dir_pot);
+        // Serial.printf("BB: %d\n", 255);
+        // Serial.printf("BR: %d\n\n", br_value);
+        bb_vel = 255 * speed_porc;
+        br_vel = br_value * speed_porc;
+        dacWrite(bb_dac_pin, 255 * speed_porc);
+        dacWrite(br_dac_pin, br_value * speed_porc);
+    }
+    Serial.printf("\nBombordo: %.2f V\n"
+                    "Direcao: %d\n"
+                  "Boreste: %.2f V\n"
+                  "Porc: %.2f\n",
+                  adc2voltage(bb_pot), dir_pot, adc2voltage(br_pot), speed_porc);
 }
