@@ -2,6 +2,7 @@
 #include <Adafruit_ADS1X15.h> // 16-bit high-linearity with programmable gain amplifier Analog-Digital Converter for measuring current and voltage.
 #include <SPI.h> // Required for the ADS1115 ADC.
 #include <Wire.h>
+#include <cmath>
 
 typedef Adafruit_ADS1X15 ADS1115;
 
@@ -20,9 +21,12 @@ const int dead_zone_threshold = 3000;
 
 volatile int bb_vel = 0;
 volatile int br_vel = 0;
-
 ADS1115 adc; 
 
+double clamp(double v, double min, double max)
+{
+    return std::min(max, std::max(min, v));
+}
 
 int get_velocity_linear(int value){
 	int mapped_value = map(value, 0, pot_max_bit/2-dead_zone_threshold, 0, 1000);
@@ -64,14 +68,13 @@ void DirectionTask(void *parameter){
     }
 
     while(true){
-        int bb_pot = adc.readADC_SingleEnded(0);
-        int br_pot = adc.readADC_SingleEnded(2);
+        int16_t bb_pot = adc.readADC_SingleEnded(0);
+        int16_t br_pot = adc.readADC_SingleEnded(2);
         int16_t dir_pot = adc.readADC_SingleEnded(1);
 
-        float speed_porc = (float)bb_pot / pot_max_bit;
+        float speed_porc = clamp((float)bb_pot / pot_max_bit, 0.0f, 1.0f);
 
-        if((dir_pot > (pot_max_bit/2 - dead_zone_threshold)) && (dir_pot < (pot_max_bit/2 + dead_zone_threshold))){
-            // Serial.printf("Morta %d\n", 255);	
+        if((dir_pot > (pot_max_bit/2 - dead_zone_threshold)) && (dir_pot < (pot_max_bit/2 + dead_zone_threshold))){	
             bb_vel = 255 * speed_porc;
             br_vel = 255 * speed_porc;
             dacWrite(bb_dac_pin, 255 * speed_porc);
@@ -79,8 +82,6 @@ void DirectionTask(void *parameter){
         }
         else if(dir_pot < (pot_max_bit/2 - dead_zone_threshold)){
             int bb_value = get_velocity_linear(dir_pot);
-            // Serial.printf("BB: %d\n", bb_value);
-            // Serial.printf("BR: %d\n\n", 255);
             bb_vel = bb_value * speed_porc;
             br_vel = 255 * speed_porc;
             dacWrite(bb_dac_pin, bb_value * speed_porc);
@@ -88,8 +89,6 @@ void DirectionTask(void *parameter){
         }
         else{
             int br_value = get_velocity_linear((pot_max_bit-1)-dir_pot);
-            // Serial.printf("BB: %d\n", 255);
-            // Serial.printf("BR: %d\n\n", br_value);
             bb_vel = 255 * speed_porc;
             br_vel = br_value * speed_porc;
             dacWrite(bb_dac_pin, 255 * speed_porc);
